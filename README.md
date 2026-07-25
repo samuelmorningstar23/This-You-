@@ -29,6 +29,8 @@ Every failed system makes the human **carry** a proof (credential, badge, manife
 
 Deepfakes are not detected. They are **disconnected**: perfect pixels, no resolvable root behind them.
 
+**And no — this does not mean a proof ritual at every login. The opposite.** Your morning phone unlock opens a *presence session*; an unbroken custody chain (watch on wrist, phone in pocket, your devices in UWB range, screen attention — computed on-device, never exported) sustains it silently all day. Short-lived, channel-bound *staples* ride along with your traffic, so CAPTCHAs and 2FA codes disappear. The only ceremony you ever feel is the Apple-Pay-style gesture at irreversible actions — friction proportional to irreversibility, zero everywhere else. Every ingredient (on-body detection, auto-unlock proximity, UWB ranging, Private Access Tokens) already ships at consumer scale; PRP is the composition.
+
 ```mermaid
 sequenceDiagram
     participant F as Fraudster (deepfake CFO on call)

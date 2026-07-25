@@ -2,7 +2,7 @@
 
 *A new trust layer: stop carrying proofs of humanness. Resolve them, live, per action.*
 
-**Status:** design proposal v0.1 · builds on [`RESEARCH.md`](./RESEARCH.md)
+**Status:** design proposal v0.2 (v0.2 adds §3, zero-friction presence) · builds on [`RESEARCH.md`](./RESEARCH.md)
 
 ---
 
@@ -35,7 +35,7 @@ The deepfake becomes irrelevant rather than detected. In the Arup attack, flawle
 ### 2.1 Personal trust root (PTR)
 A user's PTR is a key hierarchy living in the secure enclaves of their everyday devices (phone first — no new hardware; the orb's distribution mistake is not repeated). Properties:
 
-- **Local biometric gate.** Every signature requires a fresh on-device biometric match (passkey UX; templates never leave the enclave — no central biometric honeypot, avoiding L3's privacy trap and the regulatory fate documented for orb enrollment).
+- **Local biometric gate.** Every signature requires a live gate: a fresh on-device biometric match, or an unbroken custody chain extending from one (§3). Templates never leave the enclave — no central biometric honeypot, avoiding L3's privacy trap and the regulatory fate documented for orb enrollment.
 - **Multi-device, recoverable.** Several enrolled devices form one root; loss is survivable via quorum + re-anchoring (see 2.2). Compromise blast radius = one root, never the system (contrast: one backdoored orb ⇒ unlimited fake humans).
 - **Pairwise pseudonymous.** The root derives an unlinkable identity per relying party (BBS+/CL-style anonymous credentials). Verifiers learn nothing across contexts unless the user discloses.
 
@@ -59,11 +59,14 @@ The heart of the protocol. A RESOLVE response is a short-lived signed statement:
 
 ```
 { nonce, audience, tier, assurance,
-  biometric_gate_age: 8s,        // enclave-attested: last local match
+  biometric_gate_age: 6h12m,     // enclave-attested: last explicit local match
+  custody_age: unbroken 6h12m,   // on-body/proximity/attention chain since that gate (§3)
   session_binding: hash(TLS exporter / SFrame key),  // this stream, not a parallel one
   concurrency: 1,                // sessions this root is currently backing
   continuity: 0.97 }             // longitudinal usage-consistency score
 ```
+
+Freshness is two-dimensional by design: *when did a biometric last gate this root* and *has custody been unbroken since*. Verifier policy consumes both — most tiers accept "gated this morning + custody unbroken"; COSIGN at T2 demands `biometric_gate_age ≤ 60s`. This is what makes §3's zero-friction model possible without weakening the top of the stack.
 
 - **Tier T0 — "a live human":** anonymous. For bot-free comment sections, dating swipes, agent-vs-human disclosure.
 - **Tier T1 — "the same human as before":** pairwise pseudonym + continuity. For reputation without identity.
@@ -79,7 +82,51 @@ A root can mint **grants** to agent keys: `{scope (machine-readable verbs/limits
 - **Revocation is instant** — pull architecture means there is no cached token to outlive the human's change of mind.
 - Prompt-injected agents **fail closed at the boundary**: whatever the hijacked agent believes, an out-of-scope action cannot resolve; above-threshold in-scope actions escalate to COSIGN, putting a human biometric gate between the injection and the money. (Honest residual: an in-scope, sub-threshold malicious action still passes — we narrow the credential-validity≠intent gap; nobody has closed it.)
 
-## 3. Why rental — the attack that kills everything else — becomes uneconomic
+## 3. Zero-friction by design: prove once, sustain by custody
+
+The obvious objection: *"a proof at every login is a hassle."* Correct — and fatal if unsolved. CAPTCHA's second failure (besides losing to bots) was taxing billions of humans daily; any layer that challenges people constantly gets disabled or resented. So v0.2 adopts a hard UX requirement: **the median user performs no additional explicit act on the median day.** Friction must be proportional to irreversibility, and zero elsewhere. Four mechanisms deliver that — each ingredient already shipped at consumer scale, so this is composition, not speculation.
+
+### 3.1 Presence sessions: the proof is a byproduct of custody
+
+The first unlock of the day — an act people already perform — opens a **presence session** in the enclave. From then on the session is sustained not by re-challenging the human but by an **unbroken chain of custody**, measured entirely on-device: watch on wrist (on-body detection), phone in hand/pocket, the user's devices within BLE/UWB range of each other, screen attention, ongoing input. Custody signals never leave the device — they only decide whether the enclave keeps signing. Break the chain (watch off, phone handed over, walked away) and the session decays; the next action needing freshness costs exactly one glance/touch, a gesture users already know.
+
+Net explicit acts on a normal day: one to three — *fewer* than today's password + 2FA + CAPTCHA regime, with strictly stronger guarantees. Precedents that each piece works: Apple Watch holds unlocked state on-body all day and drops it instantly on removal; Watch auto-unlocks Macs in proximity; UWB car keys do distance-bounded ranging against relay attacks; attention-aware Face ID.
+
+Note this does **not** reintroduce the L1 arms race: custody/behavioral signals gate only the *local* enclave. Remote verifiers still receive only signatures. There is no remote classifier to attack — defeating custody requires physical possession of this person's devices and body, which is precisely the non-amortizable cost PRP prices everything in.
+
+### 3.2 Presence stapling: answers before questions
+
+Live resolution round-trips on every request would be slow and would centralize query metadata. Instead, while custody is intact, the enclave continuously refills a small buffer of **micro-attestations** — audience-bound, channel-bound, TTL of seconds to minutes — and the client **staples** one to each interaction. OCSP stapling, for humans. Verifiers get cryptographic freshness with zero round trips and zero human involvement; the resolver is consulted only for revocation roots, delegation-chain walks, and high-tier ceremonies. When custody breaks, the buffer stops refilling and presence decays gracefully instead of slamming shut.
+
+*Doesn't a staple violate §1's "no carried proofs"?* No. The inversion's content is *no durable, unbound artifact*. A staple is seconds old, bound to one audience and one channel, and its **supply** dies with the human's custody. Renting staples means renting the human, continuously — the intended cost floor. The $20 World ID is durable and unbound; a staple is a heartbeat.
+
+### 3.3 Fused ceremonies: the approval *is* the gesture
+
+Apple Pay's lesson: a biometric ceremony reads as zero friction when it is fused with the intent gesture itself. COSIGN adopts this. Approving a wire is double-press + glance on a card that renders the parsed action object ("$25.6M → 5 new accounts — requested via email thread X"); signing a document is the fingerprint-press that *is* the Sign button. No modal after the action — the action's own gesture carries the signature. Deliberate friction is *reserved* for irreversibility: a $25M wire should take ten seconds and feel like closing a vault door. That pause is the feature. What must feel instant is everything below it.
+
+### 3.4 Logins abolished, not streamlined
+
+For the web at large the goal is not a faster humanness challenge at login — it is **no login-time humanness event at all**. Traffic from a client holding a live presence session arrives with T0 staples attached, in the Privacy Pass / Private Access Token flow that Apple and Cloudflare already run silently to let iPhones skip CAPTCHAs — PRP generalizes the assertion from "genuine device in good standing" to "live-custody human root, tiered." Identity remains whatever the site uses (ideally a passkey: one tap); humanness becomes ambient. The user-visible effect of adopting PRP on the everyday web is *negative* friction: CAPTCHAs disappear.
+
+### 3.5 The friction ledger
+
+| Event | Today | PRP v0.2 |
+|---|---|---|
+| Morning | unlock phone | unlock phone (opens presence session) — unchanged |
+| Browsing, posting, "prove you're not a robot" | CAPTCHAs, email-verification loops | nothing — staples ride along |
+| Service login | password + 2FA code | passkey tap (identity); humanness ambient |
+| Video call | nothing — and no protection | nothing — custody + attested sensor path, badge in client chrome |
+| Mid-stakes action (share doc, $200 transfer) | password re-prompt / SMS code | nothing, or one glance if custody recently broke |
+| Irreversible action ($25M wire) | a video call was deemed sufficient (Arup) | one fused ceremony, ~10 deliberate seconds — the only moment the layer *wants* to be felt |
+
+### 3.6 What custody-based silence costs (new attack surface, priced honestly)
+
+- **Grab attack** (snatch an unlocked phone mid-session): the thief inherits low/mid-tier freshness until decay. Bounded three ways: custody sustains but never *upgrades* — T2 and every COSIGN demand a fresh biometric the thief's face fails; the mesh splits (the victim's watch leaves with the victim) and `continuity` collapses; residual exposure ≈ what a snatched unlocked phone already exposes today, minus the high-tier surface.
+- **Proximity relay:** UWB distance-bounding plus conservative ranging policy; staples' channel-binding caps the value of any relayed presence.
+- **Custody-sensor spoofing** (warm gel on a wrist sensor): again sustains-but-never-upgrades; the attacker still needed the enrolled device and an opened session — per-victim physical work, not amortizable.
+- **Privacy:** custody inference (gait, heart rate, attention) is the creepiest data class in this design — so it is architecturally confined: computed in-enclave, exported only as `custody_age` and a scalar grade. The protocol has no field through which a verifier could request raw custody signals.
+
+## 4. Why rental — the attack that kills everything else — becomes uneconomic
 
 The $20 World ID market exists because enrollment-time binding is sold once and works forever (L2). Under PRP the "credential" is a *stream of freshly biometric-gated answers*:
 
@@ -90,7 +137,7 @@ The $20 World ID market exists because enrollment-time binding is sold once and 
 
 Rental isn't made impossible (a colluding human can sit and approve forever); it's made to cost ≈ one dedicated human per identity — **restoring the marginal cost that made pre-AI trust signals work**, which is the correct security target (same bar Ford proves is the ceiling for any scheme: bodies can always be hired; what you can prevent is *amortization*).
 
-## 4. Walking the five laws
+## 5. Walking the five laws
 
 | Law (from RESEARCH.md §3) | PRP's answer |
 |---|---|
@@ -100,9 +147,9 @@ Rental isn't made impossible (a colluding human can sit and approve forever); it
 | **L4** Proof attached to wrong object | Proof attaches to (a) the live session binding and (b) the action object hash — the two objects that were actually forged at Arup. Nothing is embedded in content for platforms to strip. |
 | **L5** Identity/humanness/authority conflated; agents outside | Tiers T0/T1/T2 separate the three assertions; verifiers request the minimum. DELEGATE makes agent authority a first-class, human-rooted, resolvable, instantly-revocable chain. |
 
-And the three absorbed observations: the channel is never the authorization (COSIGN out-of-band of the call); binding re-established at use time (biometric_gate_age); scarcity anchored on live attention (concurrency), not enrolled bodies.
+And the three absorbed observations: the channel is never the authorization (COSIGN out-of-band of the call); binding re-established at use time (biometric gate + unbroken custody, §3); scarcity anchored on live attention (concurrency), not enrolled bodies.
 
-## 5. Threat model — including what still hurts
+## 6. Threat model — including what still hurts
 
 | Attack | Outcome under PRP | Residual |
 |---|---|---|
@@ -110,17 +157,18 @@ And the three absorbed observations: the channel is never the authorization (COS
 | Credential rental/sale | One-time sale impossible; requires continuous human collusion, capped by concurrency | Dedicated human-in-the-loop fraud farms at ~1 human : 1 identity — the intended floor |
 | Camera/feed injection (FinCEN vector) | No sensor content is trusted anywhere | — |
 | Device theft | Biometric gate blocks; quorum revocation from other devices | Sophisticated local biometric spoof on a stolen phone (rate-limited, A-grade capped) |
+| Grab of *unlocked* device mid-session (new surface from §3) | Custody sustains but never upgrades tier; COSIGN/T2 demand fresh biometric; mesh split + continuity collapse accelerate decay | Minutes of low-tier surface ≈ today's snatched-phone exposure, minus high-tier |
 | Coercion ("$5 wrench", border orb harvesting) | Duress biometric → silent flag + decoy approval; delay windows + second-root co-sign policies for large COSIGNs | Not eliminable by any protocol; reduced to bank-vault economics |
 | Enclave/TEE compromise (Ford's objection) | Blast radius = one root; remote attestation + device-class assurance caps; rotation | A-grade inflation if an entire enclave class breaks — graded, not binary, by design |
 | Enrollment fraud (GenAI beats KYC) | Remote anchors capped at A1; A2+ in-person/institutional | Fake humans exist at low assurance — labeled, rate-limited, unable to touch high-stakes surfaces |
 | Prompt-injected agent | Out-of-scope fails closed; thresholds force COSIGN | In-scope sub-threshold malice (open problem industry-wide) |
 | Resolver surveillance (who queries whom) | Blinded relays (OHTTP-style), pairwise pseudonyms, on-device continuity scoring | Metadata privacy engineering — named open problem, not hand-waved |
 
-## 6. What PRP does *not* claim
+## 7. What PRP does *not* claim
 
 Honesty the research demands: **no global one-human-one-account guarantee** (that property is unbuyable without the dystopia — L3); **no truth verification** (a verified human can lie; C2PA's lesson generalizes); **no intent guarantee inside granted scope**; **enrollment inherits the weakness of its anchors** — PRP grades that weakness instead of laundering it. PRP's claim is narrower and, per the gap analysis, exactly the empty quadrant: *live human presence, continuity, selective identity, and delegated authority — resolvable per action, private by default*.
 
-## 7. Novelty, stated precisely
+## 8. Novelty, stated precisely
 
 Every primitive here exists (enclaves, passkeys, anonymous credentials, capability chains, attestation). The composition does not — and each closest neighbor lacks the load-bearing piece:
 
@@ -132,7 +180,7 @@ Every primitive here exists (enclaves, passkeys, anonymous credentials, capabili
 
 One sentence: **prior art proves a human *was somewhere once*; PRP proves a human *is here, now, for this*.**
 
-## 8. Go-to-market: sell the wire that doesn't move
+## 9. Go-to-market: sell the wire that doesn't move
 
 **Wedge — "COSIGN for payments" (single-enterprise, no network effect needed).** A finance team enrolls in a one-hour ceremony (A3 anchors). Policy: payment instructions above threshold require COSIGN from requester + approver roots. The Arup attack — and the entire BEC/deepfake-executive category FinCEN documents — dies in that org on day one, regardless of how good the fakes get. Priced against the $25.6M loss and a fraud category Deloitte projects at up to $40B by 2027. This is deliberately one-sided adoption: no counterparty network required, unlike every PoP system that died of two-sided cold start.
 
@@ -142,17 +190,17 @@ One sentence: **prior art proves a human *was somewhere once*; PRP proves a huma
 
 **Endgame:** the resolution network *is* the moat — "the layer every bank, app, and video call checks before it trusts anyone."
 
-## 9. MVP (v0, ~8 weeks)
+## 10. MVP (v0, ~8 weeks)
 
-1. **Mobile root app** (iOS first): Secure Enclave keys, FaceID-gated signing, QR/push enrollment ceremony, device-quorum recovery. No custom hardware, no server-side biometrics.
-2. **Resolver service:** RESOLVE/COSIGN endpoints, nonce/audience discipline, org policy engine (thresholds, anchor grades), audit log.
-3. **Payments integration #1:** Slack app + email plugin — any wire request auto-generates an action object; approver dashboard shows COSIGN state; bank export blocks unsigned instructions.
+1. **Mobile root app** (iOS first): Secure Enclave keys, FaceID-gated signing, QR/push enrollment ceremony, device-quorum recovery. No custom hardware, no server-side biometrics. Custody v0 = OS unlock state + on-body/proximity signals the platform already exposes; staple buffer refilled while custody holds.
+2. **Resolver service:** RESOLVE/COSIGN endpoints, staple validation, nonce/audience discipline, org policy engine (thresholds, anchor grades, freshness floors per tier), audit log.
+3. **Payments integration #1:** Slack app + email plugin — any wire request auto-generates an action object; approver's phone renders it on a card approved by fused gesture (double-press + glance); bank export blocks unsigned instructions.
 4. **Demo that sells:** a live deepfake call (with consent) requesting a wire — pixels perfect, RESOLVE red, wire frozen.
 5. Publish the attestation format + verifier SDK openly from day one; protocol capture, not data capture, is the business.
 
-## 10. Open problems (research agenda)
+## 11. Open problems (research agenda)
 
-1. **Continuous-presence UX cost** — cadence vs battery/attention; passive gating (FaceID-style) vs explicit challenges during calls.
+1. **Custody robustness & decay tuning** — optimal decay curves per device class and signal set; battery cost of the staple buffer; presence sessions for users *without* wearables or with a single device (their sessions decay faster — how much friction returns, and can phone-only custody close the gap?).
 2. **Metadata-private resolution at scale** — blinded relays, unlinkable queries, resolver decentralization/federation.
 3. **Anchor governance** — who grades issuers (FIDO-Alliance-shaped consortium?); capture resistance; cross-border recognition (eIDAS interop).
 4. **Duress semantics** — formalizing decoy approvals and delay windows without teaching attackers the tells.
