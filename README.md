@@ -11,6 +11,13 @@ This repo contains two documents:
 | [**RESEARCH.md**](./RESEARCH.md) | Adversarially fact-checked survey of every deployed approach — CAPTCHAs, World ID & proof-of-personhood, KYC, liveness/deepfake detection, C2PA, passkeys, personhood-credential and delegation research — how each works, its documented real-world bypasses, and the *structural law* it dies by. Ends with the gap analysis: the empty quadrant nothing occupies. |
 | [**SOLUTION.md**](./SOLUTION.md) | **The Presence Resolution Protocol (PRP)** — the new design built against those laws. |
 
+…and, since the same question turns out to have a physical-world twin, two more:
+
+| Doc | What it is |
+|---|---|
+| [**EDITH.md**](./EDITH.md) | *"Is the person in front of me really them?"* — the E.D.I.T.H. glasses from *Far From Home*, taken capability by capability against 2026 tech, law, and physics. What ships, what's illegal, what's a graveyard, and what to build. |
+| [**edith/**](./edith/) | The working assistant that comes out of it. Its answer to "who is this person" is PRP applied to proximity: **resolution, not recognition** — nobody who hasn't opted in is resolvable, and there is no code path that turns a face into a name. |
+
 ## The research in five laws
 
 Every documented failure is one of these:
