@@ -156,9 +156,10 @@ def _budget() -> int:
 
     print(
         "\nBut the bill is the smaller problem. The binding constraint is power:"
-        "\ncontinuously encoding and radioing a frame per second is what turns a"
-        "\nsix-hour battery into a thirty-minute one on shipping hardware. The"
-        "\ngate optimises for radio-off time; the cost saving comes along for free."
+        "\nglasses have ~200 mW to spend on average and a 1-2 W thermal ceiling"
+        "\nagainst skin, which is why measured continuous use runs 2-3x shorter"
+        "\nthan rated endurance. The gate optimises for radio-off time; the cost"
+        "\nsaving comes along for free."
     )
     return 0
 

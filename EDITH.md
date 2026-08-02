@@ -99,7 +99,9 @@ This is the constraint people consistently underestimate, because it is not abou
 - **~200 mW average** is the whole budget for all-day use, from a ~3 Wh battery that is itself capped by a 20–30 g electronics weight allowance in a ≤50 g device.
 - **1–2 W instantaneous** is the thermal ceiling. IEC 62368-1 caps user-accessible surfaces at 48 °C; comfort targets are ~40 °C on metal. There is no fan and almost no thermal mass, and the light engine sits millimetres from the SoC on your temple.
 
-Do the arithmetic on Meta's own disclosed limits: 960 mWh divided by a 30-minute live-streaming cap implies **~1.9 W during capture** — exactly at the wall. Video on glasses is *thermally* limited, not battery-limited or storage-limited. Independent reports put continuous live AI on Ray-Ban Display at roughly **30 minutes against a 6-hour rating**.
+The observable consequence is an endurance gap between rated and continuous use. Ray-Ban Display is rated for up to 6 hours mixed-use; independent measurement puts continuous heavy use at **roughly 2–3 hours** — Wirecutter reports "almost three hours with continuous use", Tom's Guide saw 40% remaining after 90 minutes. So a 2–3× gap, and it is the budget above that explains it, not any single vendor figure.
+
+*A correction I owe the reader:* the first draft of this document claimed the gap was 12× — that continuous AI drained the device in 30 minutes. That figure has no primary source and the measurements contradict it; it most likely conflates the livestream cap on a *different* product, the Neural Band's 30-minute fast charge, or the 30-hour glasses-plus-case total. Related: the per-clip recording default is 3 minutes at **1080p30** and is **user-adjustable**, not a hard cap, and Meta nowhere attributes it to thermals. Details in [`VERIFICATION.md`](./VERIFICATION.md).
 
 Three consequences that shape any real design:
 
@@ -117,7 +119,7 @@ The correct architecture is therefore **glasses as sensor, phone as inference, c
 
 ### Vision
 
-Claude bills images as 28×28-pixel patches — `ceil(w/28) × ceil(h/28)` tokens — so a 768×768 frame is 784 tokens, 448×448 is 256, and full resolution caps at 4,784. (The widely-repeated `(w×h)/750` formula is wrong.) Streaming one frame a second for eight hours:
+Claude bills images as 28×28-pixel patches — `ceil(w/28) × ceil(h/28)` tokens, evaluated *after* any downscale to the tier limit — so a 768×768 frame is 784 tokens, 448×448 is 256, and the high-resolution tier (Claude 4.7 and later) caps at 4,784. The older `(w×h)/750` rule is a superseded approximation that lands within a few percent but is never exact. Streaming one frame a second for eight hours:
 
 | Frame size | Tokens/day | Cost/day (Opus 5) |
 |---|---|---|
@@ -158,9 +160,11 @@ Three separate things stop you shipping it, and it is worth being precise about 
 
 **2. The processing has no lawful basis.** A passerby's face is GDPR Article 9 special-category data and they have consented to nothing.
 
-**What is *not* the objection:** Article 5(1)(h)'s real-time remote biometric identification ban is **scoped to law enforcement** and does not by its terms reach a private wearable. The Commission's February 2025 guidance confirms private-sector face recognition is governed by GDPR instead. Citing 5(1)(h) at a private product is a common and discrediting error.
+**What is *not* the objection:** Article 5(1)(h)'s real-time remote biometric identification ban is **scoped to law enforcement** and does not by its terms reach a private wearable sold to consumers. Citing 5(1)(h) at a private product is a common and discrediting error.
 
-**3. It reaches you personally.** Illinois BIPA §10 defines "private entity" to include **"any individual"** — a hobbyist is a proper defendant, at $1,000 per negligent and $5,000 per intentional violation plus fees. (Note that Illinois SB 2979, August 2024, limits repeat collection from the same person by the same method to a *single* recovery, so the old per-scan accrual theory is gone — quoting it dates you.) Texas CUBI has no private right of action but its Attorney General took **$1.4B from Meta** and $1.375B from Google.
+Two caveats on that, though, because the scope is wider than "not us". Article 3(46) defines "law enforcement" to include activities carried out by such authorities **or on their behalf**, and Article 3(45) reaches any body "entrusted by Member State law to exercise public authority" — so a private vendor operating *for* police is squarely inside the prohibition. And Article 5(5) leaves Member States free to impose **stricter national rules** on private use, so "not banned at EU level" is not "permitted in every member state".
+
+**3. It reaches you personally.** Illinois BIPA §10 defines "private entity" to include **"any individual"** — a hobbyist is a proper defendant. Damages are $1,000 per negligent and $5,000 per *intentional or reckless* violation, though these are liquidated-damages floors ("or actual damages, whichever is greater") and discretionary under *Cothron*, not an automatic multiplier. Illinois SB 2979 (August 2024) limits repeat collection from the same person by the same method to a single recovery — so the per-scan accrual theory is displaced, though the amendment carries no retroactivity clause and it took *Clay v. Union Pacific* (7th Cir., April 2026) to hold it retroactive, a ruling that does not bind Illinois state courts. Texas CUBI has no private right of action but its Attorney General took **$1.4B from Meta** and $1.375B from Google.
 
 You cannot buy your way out either: the 2022 ACLU settlement **permanently bars Clearview from selling to any private entity in the US**.
 
@@ -176,6 +180,8 @@ Here is the useful part. The *valuable* half of "who is this person" survives th
 - **Resolution** asks *"is there someone here who will tell me who they are?"* — answered by that person's own device, live, and revocably.
 
 This is the [Presence Resolution Protocol](./SOLUTION.md) from this repository applied to physical proximity, and the law already draws the line in the same place: **AI Act Annex III excludes systems whose sole purpose is "to confirm that a specific natural person is the person he or she claims to be."** Identification searches a population for a face. Verification checks a claim its subject is making about themselves. This is verification.
+
+(Timing note, since it cuts both ways: Regulation (EU) 2026/1744, in force 27 July 2026, left that carve-out untouched but **deferred the Annex III high-risk obligations from 2 August 2026 to 2 December 2027**. So remote biometric identification is classified high-risk today without the provider and deployer duties yet applying. Building on the deferral would be unwise; it is a delay, not a repeal.)
 
 Every layer is shipped technology:
 
@@ -196,9 +202,9 @@ Implemented in [`edith/identity.py`](./edith/identity.py). There is no `identify
 
 What stops you is statute, in three places:
 
-- **Arming is federally prohibited.** FAA Reauthorization Act 2018 §363, codified at 49 U.S.C. 44802 note: **up to $25,000 civil penalty per violation, no private-party exception.**
-- **One pilot, one aircraft.** 14 CFR 107.35 bars acting as remote PIC for more than one small UAS at a time. Every US light show runs on a waiver.
-- **BVLOS is not routine.** Part 108 is *not law* as of August 2026 — the NPRM published August 2025 and the final rule has not issued.
+- **Operating an armed drone is federally prohibited.** FAA Reauthorization Act 2018 §363, at 49 U.S.C. 44802 note. Two precisions worth having right: the text reads "**Unless authorized by the Administrator**, a person may not operate an unmanned aircraft… equipped or armed with a dangerous weapon" — so there is an authorization pathway rather than a flat ban, and it is not restricted to government operators. And the operative penalty is not the $25,000 in the statute: inflation-adjusted under 14 CFR 13.301 it is **$31,207 per violation** for violations on or after 30 December 2024.
+- **One pilot, one aircraft.** 14 CFR 107.35 bars manipulating flight controls **or** acting as remote PIC **or** acting as visual observer for more than one unmanned aircraft at a time. Every US light show runs on a waiver.
+- **BVLOS is not routine.** Part 108 is *not law* as of August 2026. But treat this as **volatile rather than settled**: the Fall 2025 Unified Agenda projected a July 2026 final rule and Pub. L. 118-63 §930 set a statutory deadline of 16 January 2026. Both have passed, so the rule is overdue and could publish at any time. Re-verify before relying on it.
 
 There is now a fourth, newer wall that catches people out: since **22 December 2025 the FCC Covered List bars all foreign-produced UAS and critical components from new equipment authorization**, so the DJI hardware most people would prototype on can no longer be newly imported or marketed in the US. (The NDAA §1709 audit that would have cleared DJI was simply never performed — no agency took it on before the deadline, so the listing happened by default rather than by a finding.)
 
@@ -217,8 +223,8 @@ Every prior attempt died, and the causes were not AI quality.
 | Product | What happened |
 |---|---|
 | **Google Glass** | $1,500. Consumer sales halted 9 months after open sale. Died of *social rejection* — bans, and the word "Glasshole" — not technology. Enterprise pivot ended 2023. |
-| **Humane AI Pin** | $699 + **mandatory $24/mo**. ~10,000 shipped against a 100,000 target; **returns exceeded sales** May–Aug 2024. Thermal failure: executives used ice packs before demos, the projector throttled at ~9 minutes. Servers went dark 28 Feb 2025 and **every device bricked**. Assets to HP for $116M. |
-| **Rabbit R1** | ~130,000 sold, **~5,000 daily actives** by Sept 2024 — 96% abandonment. The "Large Action Model" never worked; the software turned out to be an Android app. |
+| **Humane AI Pin** | $699 at launch, cut to $499; **mandatory $24/mo, never discounted**. ~10,000 shipped against a 100,000 target, with **returns exceeding sales** May–Aug 2024 *(from a leaked internal dataset Humane disputed, not a disclosure)*. Thermal failure: executives used ice packs before demos, the projector throttled at ~9 minutes. Cloud service ended 28 Feb 2025 and **the devices lost their functions**. Platform, talent and 300+ patents to HP for $116M — excluding the device business. |
+| **Rabbit R1** | ~130,000 claimed sold (self-reported). Widely quoted as "5,000 daily actives" — **that number is a correction casualty**: The Verge corrected it to 5,000 *concurrent* users, against ~20,000 daily and a 34,000 peak. So roughly 80% non-daily use, not 96% abandonment. Still terrible; the "Large Action Model" never worked, and the software turned out to be an Android app. |
 | **HoloLens** | 579 g and 566 g. Both dead. Head-worn compute is a weight problem before it is anything else. |
 | **Snap Spectacles** | 220,000 units, **>$40M inventory write-off**, hardware layoffs. |
 | **Ray-Ban Meta** | The one success — *because it has no display and no autonomy*. |
@@ -230,7 +236,7 @@ The rules that fall out of this are not subtle:
 1. **No display in v1.** Every display-bearing consumer product either died or shipped badly compromised. Ray-Ban Display, with Meta's budget, takes *upwards of 10 seconds* to load a message over its BLE link and has no third-party app ecosystem.
 2. **70 g is a hard ceiling; 45 g is the target.** Weight is not a spec line, it is the gate on whether anyone wears it for eight hours.
 3. **Budget thermals before compute.** This rules out on-device LLM inference as a v1 plan.
-4. **Never make the device useless without your servers.** Humane deleted user data and bricked ten thousand devices at midnight.
+4. **Never make the device useless without your servers.** Humane's cloud went dark on a scheduled date and took every cloud feature with it.
 5. **No subscription for the AI in v1.** Humane's $24/mo was among the most-cited return reasons.
 6. **Assume ~96% churn unless you have one specific, repeated, unavoidable job.** Only two jobs have demonstrated retention: hands-free capture of conversations you would otherwise lose, and point-of-view photo/video.
 7. **Design the social contract before the product.** Glass died of it. New York banned camera eyewear from 1,200+ court facilities in July 2026. There is no US statute requiring a recording LED — it is a manufacturer choice — but it is the only claim you can make to a bystander, which is why Meta now permanently disables the camera on detecting LED tampering.
@@ -241,15 +247,19 @@ The rules that fall out of this are not subtle:
 
 ### The device
 
-The blunt finding: **you cannot build this on Meta's hardware.** The Wearables Device Access Toolkit (opened 14 May 2026) exposes camera, mic, speaker and display — but **explicitly does not expose Meta AI capabilities including voice commands**, so you cannot put your own assistant behind the wake word; there is no third-party camera-*stream* SDK; gestures are fixed; publishing is unavailable and native builds cap at 100 testers. Ray-Ban Display is a beautiful dead end for this project.
+This is the section verification changed most, so it is worth stating what is actually true about Meta's platform rather than the simpler story I had.
+
+**Meta's Wearables Device Access Toolkit is more capable than I first claimed, and more limited in a different place.** It entered developer preview on 30 October 2025 and is still in preview. `mwdat-camera` *is* a third-party camera-stream SDK — HEVC video streaming with configurable frame rates — and it is the toolkit's flagship capability. But **it exposes no microphone and no speaker at all**: the Android SDK has exactly four modules (core, camera, display, mockdevice), and audio appears nowhere in either changelog. The Web Apps track lists Microphone explicitly as unsupported.
+
+So the real shape is: you *can* build a phone app that streams video off the glasses, runs your own AI on it, and renders results to the Display — using **the phone's** microphone for voice. You *cannot* bind to Meta's wake word, use the glasses' own mics or speakers, run always-on in the background, or distribute beyond invited testers. For an assistant whose entire premise is hands-free and always-available, "hold your phone up to talk, foreground only, invite-only distribution" is disqualifying — but for the reason above, not the one I originally gave.
 
 Ranked alternatives:
 
-1. **Brilliant Labs Halo — $399, ~40 g, ~14 h.** The only shipping device with camera + colour display + mics + speakers that is *fully open source*. Alif B1 (Cortex-M55 + Ethos-U55 NPU), 640×480 global shutter, bone conduction, Python/Flutter/Web-Bluetooth/Lua SDKs that let you run any AI stack on a host and drive the glasses as pure I/O. Caveat: **BLE only, no Wi-Fi** — which §4 says caps your vision path.
-2. **Mentra Live — $349, 43 g** + MentraOS (MIT licensed). 12 MP/119°, real-time STT, raw audio, photo capture, WebRTC streaming. **No display** — which §9 argues is a feature for v1. Mentra's own Mach1 has a display and *no camera*; within their line you choose.
-3. **Project Aria Gen 2** as the research rig — 74–76 g, 4 CV cameras, 8 mics, on-device VIO/eye/hand tracking, gaze you can actually read. Not a product, but gaze is the best keyframe selector there is.
+1. **Mentra Live — $349, 43 g**, on **MentraOS (MIT licensed, verified open)**. 12 MP/119° camera, real-time STT, raw audio access, WebRTC/RTMP streaming, permissions framework. **No display** — which §9 argues is a feature for v1, not a compromise. Ships in days, no subscription. Mentra's own Mach1 has a display and *no camera*; within their line you pick one.
+2. **Brilliant Labs Halo — $399, just over 40 g.** Camera *and* colour display *and* mics *and* bone-conduction speakers, with host-driven SDKs (Python / Flutter / Web Bluetooth) plus an on-device Lua VM. Three caveats, all found by verification: it is **BLE-only with no Wi-Fi**, which §4 says caps the vision path; the "totally open source" claim **does not hold today** — the firmware repo 404s and no hardware design files are published, only the host SDK and an emulator; and it is at the very start of first shipments with the companion app still listed as coming soon. Promising, and the right bench device, but not the safe pick this month.
+3. **Project Aria Gen 2** as a research rig — 4 CV cameras, 8 mics, on-device VIO and eye tracking. Not a product, but gaze is the single best keyframe selector there is, and nothing purchasable gives it to you.
 
-**Recommendation: Mentra Live for v1** (audio-first, no display, open SDK, ships in days), with a Halo on the bench for when you want the display, and a Snap Spectacles '24 dev kit at $100/month if you ever need real 6DoF.
+**Recommendation: Mentra Live for v1** — audio-first, no display, genuinely open stack, and the only candidate whose claims all survived checking. Keep a Halo on the bench for when you want a display, and rent a Snap Spectacles '24 dev kit at $100/month if you ever genuinely need 6DoF.
 
 ### The architecture
 
@@ -288,12 +298,20 @@ The film makes this argument better than any policy document could. E.D.I.T.H. w
 
 ## Method and confidence
 
-Produced by a 14-angle parallel research pipeline — 1.79M tokens, 718 tool calls, all 14 angles returning — followed by a 10-claim adversarial verification pass in which each load-bearing claim was assigned to an agent instructed to *refute* it. Verification outcomes are in [`VERIFICATION.md`](./VERIFICATION.md).
+Produced by a 14-angle parallel research pipeline (1.79M tokens, 718 tool calls, all 14 returning), then a 10-claim adversarial pass in which each load-bearing claim was handed to an agent instructed to **refute** it, fetch primary sources, and treat its own training data as stale.
 
-Three of my own working assumptions were overturned by this process and are corrected above rather than quietly dropped:
+That pass came back: **1 confirmed, 4 confirmed with material caveats, 5 partly wrong.** Every correction is folded into the text above and itemised in [`VERIFICATION.md`](./VERIFICATION.md). The ones that changed an argument rather than a detail:
 
-- I had Claude's image cost as `(w×h)/750` tokens. It is 28×28-pixel patches.
-- I had the EU AI Act's real-time biometric ID ban applying to private wearables. It is scoped to law enforcement; the binding constraints are elsewhere.
-- I had UWB time-of-flight as a relay-proof distance bound. Ghost Peak disproves it, and the assurance model in the code was changed accordingly.
+- **The 12× battery gap was wrong.** It is 2–3×. The claim had no primary source; the physics underneath it did, so the section is now argued from the mW budget instead.
+- **Meta's toolkit does have camera streaming** — my claim that it did not was backwards. What it lacks is any microphone or speaker access at all, which changes the reason Ray-Ban Display is unsuitable without changing the conclusion.
+- **Halo is not verifiably open source** and is barely shipping, which demoted it from first choice to bench device.
+- **Rabbit's "5,000 daily users"** was corrected by its own source to 5,000 *concurrent*, against ~20,000 daily. The uncorrected figure is still in wide circulation.
+- **Arming a drone is not a flat ban** — the statute reads "unless authorized by the Administrator" — and the penalty is $31,207, not the $25,000 in the 2018 text.
 
-Coverage gaps, declared rather than papered over: enterprise/industrial wearables were not surveyed; non-US/EU regulatory regimes are covered only where a source volunteered them; and battery figures for continuous AI use are largely journalistic measurement rather than vendor disclosure.
+Three assumptions I brought in were also overturned along the way: Claude's image cost is 28×28 patches, not `(w×h)/750`; the AI Act's real-time biometric ban is law-enforcement-scoped; and UWB time-of-flight is not relay-proof (Ghost Peak), which changed the assurance model in the code, not just the prose.
+
+The pattern in what failed is worth naming: **every claim that broke was one that gets repeated rather than sourced** — a round number with no document behind it, a marketing line about open source, a press figure whose correction never caught up with it.
+
+Coverage gaps, declared rather than papered over: enterprise and industrial wearables were not surveyed; non-US/EU regulatory regimes appear only where a source volunteered them; continuous-use battery figures are journalistic measurement rather than vendor disclosure; and Part 108's status is overdue and could change without notice.
+
+One operational note for anyone running research like this: an agent fetching Meta's developer documentation reported that the page returned text instructing it to consult an external endpoint for setup guidance. It correctly treated that as untrusted content and did not act on it. Documentation pages are an injection surface.

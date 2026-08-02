@@ -11,7 +11,7 @@ the buildable part.
 python -m edith demo      # replay a scripted day; runs live if ANTHROPIC_API_KEY is set
 python -m edith budget    # the unit economics, with the arithmetic shown
 python -m edith policy    # what it refuses to do, and under what law
-python -m pytest          # 56 tests, no network or API key required
+python -m pytest          # 61 tests, no network or API key required
 ```
 
 ## What it is
@@ -47,11 +47,12 @@ does not involve a face database.
 **Vision is gated, not streamed — and the reason is battery, not the bill.**
 One frame per second for an eight-hour day is $113 on Opus 5 at 768×768, or
 $689 at full resolution. Gated, the same day is about **$0.47**. But the cloud
-bill is the *smaller* problem: continuously encoding and radioing a frame every
-second is what turns a six-hour battery into a thirty-minute one, which is the
-gap measured on shipping hardware between Ray-Ban Display's rated endurance and
-its endurance under continuous live AI. No cheaper model fixes that, because the
-cost is in the camera, the encoder, and the radio.
+bill is the *smaller* problem: glasses have roughly 200 mW to spend on average
+if they are to last a day, against a 1–2 W thermal ceiling set by what you can
+dissipate against skin. Continuous capture does not fit, which is why measured
+continuous use on shipping glasses runs 2–3× shorter than rated endurance. No
+cheaper model fixes that, because the cost is in the camera, the encoder, and
+the radio.
 
 So `gate.py` optimises for radio-off time and the cost saving follows for free.
 It works on a 16×16 grayscale thumbnail — cheap enough to run on every frame,
@@ -66,9 +67,10 @@ assistant has no value at all. Turning it on is a product decision with a
 running cost and a mute-rate consequence; make it deliberately.
 
 **Identity is resolved, not recognised.** E.D.I.T.H. looks at a stranger and
-returns their name. Doing that in 2026 means untargeted face-database building
-(EU AI Act Article 5) and per-scan statutory damages under Illinois BIPA. So
-this system inverts the question. Instead of *"whose face is this?"* — answered
+returns their name. Doing that in 2026 runs into an index you cannot lawfully
+build (EU AI Act Art. 5(1)(e)), processing with no lawful basis (GDPR Art. 9),
+and a statute that reaches you personally — Illinois BIPA defines "private
+entity" to include "any individual". So this system inverts the question. Instead of *"whose face is this?"* — answered
 by a database of people who never agreed to be in it — it asks *"is there
 someone here who will tell me who they are?"*, answered by that person's own
 device, live, and revocably.
@@ -105,7 +107,10 @@ almost nothing shipping in this form factor has them.
 
 To target a real pair of glasses, write an adapter that satisfies that Protocol.
 See [`../EDITH.md`](../EDITH.md) for which device to pick and why the answer is
-not obvious.
+not obvious — the short version is Mentra Live on MentraOS, because Meta's
+toolkit exposes no microphone or speaker at all and Brilliant Labs Halo's
+open-source claim does not currently hold up. Both findings are from
+[`../VERIFICATION.md`](../VERIFICATION.md).
 
 Two seams are stubbed and marked as such:
 

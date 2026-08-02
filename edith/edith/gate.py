@@ -6,11 +6,14 @@ tokens and a full-resolution one is capped at 4,784. Stream one frame a second
 for an eight-hour day and that is 23M tokens (~$113 on Opus 5) downscaled, or
 138M (~$690) at full resolution. Absurd, but survivable if you had to.
 
-**The actual blocker is power, and it is much less forgiving.** Continuously
-encoding and radioing a frame every second is what turns a six-hour battery into
-a thirty-minute one — the gap measured on shipping hardware between Meta
-Ray-Ban Display's rated endurance and its endurance under continuous live AI.
-No amount of cheaper tokens fixes that, because the cost is in the camera, the
+**The actual blocker is power, and it is much less forgiving.** A device
+touching someone's face has roughly 200 mW to spend on average if it is to last
+a day, against a 1-2 W instantaneous thermal ceiling — you cannot dissipate more
+than that against skin without exceeding touch-temperature limits, and there is
+no fan and almost no thermal mass. Continuously encoding and radioing a frame
+every second does not fit in that budget, which is why measured continuous use
+on shipping glasses runs 2-3x shorter than their rated mixed-use endurance. No
+amount of cheaper tokens fixes it, because the cost is in the camera, the
 encoder, and the radio, not in the model.
 
 So the gate optimises for **radio-off time**, and the cost saving follows for
