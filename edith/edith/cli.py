@@ -31,7 +31,6 @@ def _scenario() -> tuple[SimulatedDevice, Roster, dict]:
     handle = derive_handle(mj.secret, int(time.time() // ROTATION_S))
 
     device = SimulatedDevice(
-        speed=800.0,
         scenes=[
             Scene("kitchen", 6.0, describes="a pan of pasta at a rolling boil"),
             Scene("hallway", 3.0, describes="a coat rack and a front door"),

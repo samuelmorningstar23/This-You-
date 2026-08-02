@@ -76,9 +76,15 @@ class SimulatedDevice:
     #: are three independent async streams, and with zero pacing their
     #: interleaving is decided by task-scheduling order rather than by the
     #: timeline — so an advertisement scheduled *before* a question could be
-    #: delivered after it. Compressing real time keeps cross-stream ordering
-    #: faithful while still running a five-second scenario in ten milliseconds.
-    speed: float = 500.0
+    #: delivered after it.
+    #:
+    #: 50 means one simulated second costs 20 ms, which keeps a 25-second
+    #: scenario under half a second while leaving every gap in the timeline
+    #: comfortably above the event loop's timer resolution. An earlier value of
+    #: 500 was too aggressive: it compressed a 0.2 s and a 1.0 s gap to 0.4 ms
+    #: and 2 ms, close enough to the scheduler's granularity that the two
+    #: streams occasionally swapped order and a test failed intermittently.
+    speed: float = 50.0
     frame_interval_s: float = 0.5
 
     name: str = "simulator"
@@ -88,6 +94,7 @@ class SimulatedDevice:
 
     _clock: float = 0.0
     _scene_idx: int = 0
+    _origin: float | None = None
 
     # -- helpers ---------------------------------------------------------
 
@@ -102,11 +109,24 @@ class SimulatedDevice:
     def _total_s(self) -> float:
         return sum(s.duration_s for s in self.scenes) or 1.0
 
-    async def _pace(self, dt: float) -> None:
-        if self.speed > 0:
-            await asyncio.sleep(dt / self.speed)
-        else:
+    async def _wait_until(self, sim_t: float) -> None:
+        """Sleep until simulated time ``sim_t``, on a clock shared by all streams.
+
+        Absolute rather than relative: each stream sleeps toward a deadline
+        measured from one common origin, so per-hop scheduling jitter cannot
+        accumulate and reorder events that the timeline says are ordered.
+        Sleeping ``gap / speed`` per hop instead lets three independent streams
+        drift apart, which is how the ordering bug this replaces was born.
+        """
+        if self.speed <= 0:
             await asyncio.sleep(0)
+            return
+        loop = asyncio.get_running_loop()
+        if self._origin is None:
+            self._origin = loop.time()
+        deadline = self._origin + sim_t / self.speed
+        remaining = deadline - loop.time()
+        await asyncio.sleep(max(0.0, remaining))
 
     # -- Device protocol -------------------------------------------------
 
@@ -130,7 +150,7 @@ class SimulatedDevice:
                 )
                 prev_scene = scene.name
                 t += self.frame_interval_s
-                await self._pace(self.frame_interval_s)
+                await self._wait_until(t)
                 continue
             prev_scene = scene.name
             yield Frame(
@@ -141,25 +161,21 @@ class SimulatedDevice:
             )
             step += 1
             t += self.frame_interval_s
-            await self._pace(self.frame_interval_s)
+            await self._wait_until(t)
 
     async def speech(self) -> AsyncIterator[Utterance]:
-        last = 0.0
         for ev in sorted(self.script, key=lambda e: e.at_s):
             if ev.say is None:
                 continue
-            await self._pace(max(0.0, ev.at_s - last))
-            last = ev.at_s
+            await self._wait_until(ev.at_s)
             self._clock = ev.at_s
             yield Utterance(text=ev.say, directed=ev.directed, ts=ev.at_s)
 
     async def peers(self) -> AsyncIterator[Advertisement]:
-        last = 0.0
         for ev in sorted(self.script, key=lambda e: e.at_s):
             if ev.peer_handle is None:
                 continue
-            await self._pace(max(0.0, ev.at_s - last))
-            last = ev.at_s
+            await self._wait_until(ev.at_s)
             yield Advertisement(
                 handle=ev.peer_handle, ranged_m=ev.peer_range_m, ts=ev.at_s
             )

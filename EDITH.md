@@ -12,7 +12,7 @@ You can build most of E.D.I.T.H. The parts you cannot build are not the parts yo
 
 The AI is the easy half. A glasses assistant that hears you, sees what you are looking at, remembers your life, answers in your ear, and puts a line of text above your right eye is assembled from shipping components and costs about **$0.50 per wearer per day** to run. That is [`edith/`](./edith/), and it works.
 
-What stops you is a different list. **The display is a physics problem** — the wide, bright, world-locked overlay is forbidden by conservation of etendue at anything like eyeglass weight, and no amount of money fixes it this decade. **Continuous perception is a thermal problem** — a device touching your face has about 1–2 W to spend, which is why Meta's own glasses cap video at 30 minutes. **Recognising strangers is a legal problem** — not hard, illegal, and specifically illegal in ways that reach you personally. **The drones are a statute problem** — arming one is a federal offence with a named penalty. **The satellite feed does not exist** — the company that promised it went under without launching.
+What stops you is a different list. **The display is a physics problem** — the wide, bright, world-locked overlay is forbidden by conservation of etendue at anything like eyeglass weight, and no amount of money fixes it this decade. **Continuous perception is a thermal problem** — a device touching your face has about 1–2 W to spend and ~200 mW to average, which is why every shipping pair caps recording and why continuous use runs 2–3× shorter than the rated figure. **Recognising strangers is a legal problem** — not hard, illegal, and specifically illegal in ways that reach you personally. **The drones are a statute problem** — arming one is a federal offence with a named penalty. **The satellite feed does not exist** — the company that promised it went under without launching.
 
 And the single most important finding is not technical at all. Every previous attempt at this product died, and almost none of them died of AI quality. Google Glass died of social rejection. Humane died of heat and latency and then bricked ten thousand devices. Rabbit sold 130,000 units and kept 5,000 daily users. The one commercial success, Ray-Ban Meta, succeeded by *not* being E.D.I.T.H.: no display, no autonomy, just a camera and a voice in a frame people already wanted to wear.
 
@@ -127,7 +127,7 @@ Claude bills images as 28×28-pixel patches — `ceil(w/28) × ceil(h/28)` token
 | 768×768 | 22.6M | $113 |
 | 448×448 | 7.4M | $37 |
 
-Survivable, if you had to. **But the bill is the smaller problem.** Continuously encoding and radioing a frame per second is what turns a six-hour battery into a thirty-minute one. No cheaper model fixes that, because the cost is in the camera, the encoder and the radio.
+Survivable, if you had to. **But the bill is the smaller problem.** Continuously encoding and radioing a frame per second does not fit in the power budget from §4 — no cheaper model fixes that, because the cost is in the camera, the encoder and the radio.
 
 So gate on **radio-off time** and the money follows. The full cascade, cheapest first: an IMU gate (suppress capture while the head is turning); a photometric or embedding change-detector (a thumbnail diff costs microseconds; YOLOv11-n is 0.73 ms/frame on a current phone NPU, MobileCLIP-S0 is 3 ms); on-device OCR and captioning to *text*, which is what gets stored; and only then a cloud call on a selected keyframe. That takes ~3,600 frames/hour down to ~60, and the vision bill to cents.
 
@@ -238,7 +238,7 @@ The rules that fall out of this are not subtle:
 3. **Budget thermals before compute.** This rules out on-device LLM inference as a v1 plan.
 4. **Never make the device useless without your servers.** Humane's cloud went dark on a scheduled date and took every cloud feature with it.
 5. **No subscription for the AI in v1.** Humane's $24/mo was among the most-cited return reasons.
-6. **Assume ~96% churn unless you have one specific, repeated, unavoidable job.** Only two jobs have demonstrated retention: hands-free capture of conversations you would otherwise lose, and point-of-view photo/video.
+6. **Assume ~80% of buyers stop using it daily unless you have one specific, repeated, unavoidable job.** Only two jobs have demonstrated retention: hands-free capture of conversations you would otherwise lose, and point-of-view photo/video.
 7. **Design the social contract before the product.** Glass died of it. New York banned camera eyewear from 1,200+ court facilities in July 2026. There is no US statute requiring a recording LED — it is a manufacturer choice — but it is the only claim you can make to a bystander, which is why Meta now permanently disables the camera on detecting LED tampering.
 
 ---
@@ -274,15 +274,35 @@ For the agent: MCP's 2026-07-28 revision **went stateless** (sessions and the in
 
 ### The cost
 
-| Item | |
-|---|---|
-| Mentra Live | $349 one-off |
-| Vision, gated (~40 looks/day at 448×448) | ~$0.05/day |
-| Voice turns (~40/day, cached prompt) | ~$0.40/day |
-| Streaming ASR (Deepgram, per-audio-minute) | ~$0.10/day |
-| **Running total** | **≈$0.55/wearer/day, ~$17/month** |
+Two decisions dominate the bill, and both are order-of-magnitude rather than marginal. Get them right and everything else is rounding.
 
-Against naive continuous streaming at $113–689/day. The gate is the product.
+**1. Gate the microphone on-device — worth ~90×.** Always-on cloud speech-to-text for an eight-hour day is **$70/user/month** on Deepgram Nova-3. Gated behind an on-device wake word so audio only leaves the glasses after a local trigger, the same usage is **~$0.78**. This is the single most expensive mistake available in this architecture, and it is also the privacy story: the honest answer to "is the mic always on" becomes *yes, into a few hundred milliseconds of local buffer that is overwritten and never transmitted.*
+
+**2. Log text, not video — worth ~250×.** Full 1080p lifelogging is **$946/user/year** on R2 and would exceed every other cost in the system combined. Audio-only Opus at 16 kbps is **$3.78/year**; audio plus a keyframe a minute is about $5. Extract to text, drop the pixels.
+
+A third, smaller trap: **do not hold a persistent realtime session per user.** LiveKit Cloud at $0.01 per agent-session-minute is $145.92/user/month for eight hours a day. Turn-scoped sessions are $8.11; a plain WebSocket to your own server is pennies.
+
+With those settled, per-user monthly cloud cost lands at:
+
+| Tier | Vision | Voice | Total |
+|---|---|---|---|
+| Budget | Haiku 4.5 | Sonnet 5 | **$18/mo** ($217/yr) |
+| Baseline | Sonnet 5 | Sonnet 5 | **$29/mo** ($346/yr) |
+| Premium | Opus 5 | Opus 5 | **$49/mo** ($589/yr) |
+
+Vision is the dominant line and the spread across models is 5× ($5.40 on Haiku 4.5 versus $27.00 on Opus 5 for 60 queries/day), so **route by query class rather than picking one model**: triage on Haiku, escalate the ~20% that need it. That lands near Haiku cost with most of Sonnet's quality.
+
+So: **$349 of hardware and roughly $350/year to run.** A $30–40/month subscription covers it — though §9 says don't charge one in v1.
+
+### If we build our own hardware
+
+The honest finding is a null result, and it is worth stating as one. **No waveguide, light-engine, or microLED module vendor publishes a price, an NRE figure, or an MOQ** — that entire market is quote-and-NDA-only, and a research pass that fetched dozens of primary sources came back with nothing quotable.
+
+What that means practically: a clean-sheet optical design is an **unpriced risk, not a budget line**, and anyone who tells you otherwise before a signed quote is guessing. §3's physics says you would be paying that unpriced cost to land somewhere between 20° and 30° anyway — which you can buy today for $399.
+
+The realistic on-ramp to custom hardware is therefore to start from someone else's open design rather than a blank sheet. Brilliant Labs is the only vendor claiming to publish design files, which makes it the natural candidate — but note verification found those files are **not actually published yet**, so that on-ramp is a promise, not an asset.
+
+**Recommendation: do not build hardware.** Buy the glasses, own the software and the perception pipeline, and revisit when either a geometric-waveguide or silicon-carbide module has a public price.
 
 ---
 

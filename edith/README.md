@@ -46,7 +46,7 @@ does not involve a face database.
 
 **Vision is gated, not streamed — and the reason is battery, not the bill.**
 One frame per second for an eight-hour day is $113 on Opus 5 at 768×768, or
-$689 at full resolution. Gated, the same day is about **$0.47**. But the cloud
+$689 at full resolution. Gated, the same day is about **$0.47** in model tokens (see `../EDITH.md` for the all-in figure, which is $18–49/month once speech-to-text and storage are counted). But the cloud
 bill is the *smaller* problem: glasses have roughly 200 mW to spend on average
 if they are to last a day, against a 1–2 W thermal ceiling set by what you can
 dissipate against skin. Continuous capture does not fit, which is why measured
