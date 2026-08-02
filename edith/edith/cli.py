@@ -123,37 +123,42 @@ async def _run_demo(live: bool) -> int:
 
 def _budget() -> int:
     """The arithmetic that decides whether this is a product or a science project."""
-    price_in, price_out = 5.0, 25.0  # $/MTok, Opus 5 list
-    frame_tokens_full = 4_784  # a full-resolution frame
-    frame_tokens_small = 1_100  # downscaled, still reads signage
+    price_in, price_out = 5.0, 25.0  # $/MTok, Claude Opus 5 list
+    # Claude bills images as 28x28-pixel patches: ceil(w/28) * ceil(h/28).
+    full = 4_784  # full-resolution cap (2576px long edge)
+    detail = 784  # 768x768
+    ambient = 256  # 448x448 — still reads signage
 
-    print("Continuous vision, the way the film implies:\n")
-    sizes = (("full-res", frame_tokens_full), ("downscaled", frame_tokens_small))
-    for label, tok in sizes:
-        per_day = tok * 1 * 3600 * 8  # 1 fps, 8 hours
+    hours = 8
+    frames_naive = 3600 * hours
+
+    print("If it streamed vision the way the film implies (1 fps, 8 hours):\n")
+    for label, tok in (("full-res", full), ("768x768", detail), ("448x448", ambient)):
+        t = tok * frames_naive
         print(
-            f"  1 fps for 8h at {tok:,} tok/frame ({label}):"
-            f" {per_day/1e6:,.0f}M tokens = ${per_day/1e6*price_in:,.0f}/wearer/day"
+            f"  {label:>9}: {tok:,} tok/frame -> {t/1e6:6.1f}M tokens"
+            f" = ${t/1e6*price_in:6.2f}/wearer/day"
         )
 
-    print("\nGated vision, the way this runtime does it:\n")
-    looks = 40
-    turns = 40
-    text_in_per_turn, text_out_per_turn = 1_500, 120
-    vis = looks * frame_tokens_small
-    txt_in = turns * text_in_per_turn
-    txt_out = turns * text_out_per_turn
-    daily = (vis + txt_in) / 1e6 * price_in + txt_out / 1e6 * price_out
-    print(f"  {looks} gated looks at {frame_tokens_small:,} tok = {vis:,} tokens")
-    print(f"  {turns} spoken turns at ~{text_in_per_turn:,} in / {text_out_per_turn} out")
-    print(f"  = ${daily:,.2f}/wearer/day, about ${daily*30:,.0f}/month")
+    print("\nGated, the way this runtime does it:\n")
+    looks, turns = 40, 40
+    text_in, text_out = 1_500, 120
+    vis = looks * ambient
+    tin, tout = turns * text_in, turns * text_out
+    daily = (vis + tin) / 1e6 * price_in + tout / 1e6 * price_out
+    print(f"  {looks} gated looks at {ambient} tok = {vis:,} tokens")
+    print(f"  {turns} spoken turns at ~{text_in:,} in / {text_out} out")
+    print(f"  = ${daily:.2f}/wearer/day, about ${daily*30:.0f}/month")
     print(
-        "\n  Prompt caching on the stable system prompt takes the text input"
-        "\n  to roughly a tenth of that on every turn after the first."
+        "\n  Prompt caching on the stable system prompt takes the text input to"
+        "\n  roughly a tenth of that on every turn after the first."
     )
+
     print(
-        "\nThe ratio between those two blocks — about three orders of magnitude —"
-        "\nis the entire reason the gate in gate.py exists."
+        "\nBut the bill is the smaller problem. The binding constraint is power:"
+        "\ncontinuously encoding and radioing a frame per second is what turns a"
+        "\nsix-hour battery into a thirty-minute one on shipping hardware. The"
+        "\ngate optimises for radio-off time; the cost saving comes along for free."
     )
     return 0
 

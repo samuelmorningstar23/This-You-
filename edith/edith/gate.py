@@ -1,20 +1,30 @@
 """Deciding when the assistant is allowed to look.
 
-This is the most important cost-control component in the system, and the reason
-a wearable assistant is affordable at all.
+The obvious reason to gate vision is the cloud bill, and the bill is real:
+Claude tokenizes images in 28x28-pixel patches, so a 768x768 frame is 784 input
+tokens and a full-resolution one is capped at 4,784. Stream one frame a second
+for an eight-hour day and that is 23M tokens (~$113 on Opus 5) downscaled, or
+138M (~$690) at full resolution. Absurd, but survivable if you had to.
 
-Naively streaming camera frames to a multimodal model is not expensive, it is
-absurd. A high-resolution frame costs up to ~4.8K input tokens on the current
-Opus-class models. At one frame per second for an eight-hour day that is
-roughly 138M input tokens — about $690 per wearer per day at $5/MTok. Nobody is
-shipping that.
+**The actual blocker is power, and it is much less forgiving.** Continuously
+encoding and radioing a frame every second is what turns a six-hour battery into
+a thirty-minute one — the gap measured on shipping hardware between Meta
+Ray-Ban Display's rated endurance and its endurance under continuous live AI.
+No amount of cheaper tokens fixes that, because the cost is in the camera, the
+encoder, and the radio, not in the model.
 
-The fix is that almost every frame is worthless. The wearer is looking at a
-wall, a pavement, the back of someone's head, or the same laptop screen they
-were looking at ten seconds ago. So the gate answers a cheap question — "has
-anything changed, and is the camera steady?" — using a 16x16 grayscale
-thumbnail the device produces for free, and only escalates to a real frame when
-the answer is yes.
+So the gate optimises for **radio-off time**, and the cost saving follows for
+free. Almost every frame is worthless anyway: the wearer is looking at a wall, a
+pavement, the back of someone's head, or the same laptop screen as ten seconds
+ago. The gate answers a cheap question — "has anything changed, and is the
+camera steady?" — from a 16x16 grayscale thumbnail the image sensor can produce
+in a low-power mode without waking the main SoC, and escalates only on yes.
+
+Real hardware would layer this further: an IMU gate below it (suppress capture
+entirely while the head is turning), and an on-device detector or CLIP-style
+embedding above it (~1-3 ms on a modern phone NPU) for semantic rather than
+photometric change. The thumbnail diff is the cheapest useful tier and the one
+that needs no accelerator, so it is the one implemented here.
 
 Three rules, in order of authority:
 
@@ -22,8 +32,8 @@ Three rules, in order of authority:
    we look, regardless of budget.
 2. Motion suppresses capture. A frame taken mid-head-turn is blurred and
    useless; we wait for the scene to settle rather than paying for a smear.
-3. A token budget is a hard ceiling, not a suggestion. When it is spent,
-   proactive looking stops and only explicit asks get through.
+3. The budget is a hard ceiling, not a suggestion. When it is spent, proactive
+   looking stops and only explicit asks get through.
 """
 
 from __future__ import annotations
@@ -84,9 +94,13 @@ class VisionGate:
     _stable_since: float | None = None
     _captures: list[float] = field(default_factory=list)
 
-    # Roughly what a downscaled frame costs on a current Opus-class model.
-    # We downscale before sending precisely so this is ~1.1K and not ~4.8K.
-    EST_TOKENS_PER_FRAME = 1_100
+    # Claude bills images as 28x28-pixel patches: ceil(w/28) * ceil(h/28) tokens.
+    # 448x448 is 16x16 patches = 256 tokens and still reads signage and labels;
+    # 768x768 is 28x28 = 784. Sending ambient frames at the smaller size is a
+    # 3x saving for one line of resize code.
+    AMBIENT_TOKENS_PER_FRAME = 256  # 448x448
+    DETAIL_TOKENS_PER_FRAME = 784  # 768x768, for an explicit ask
+    EST_TOKENS_PER_FRAME = AMBIENT_TOKENS_PER_FRAME
 
     def _prune(self, now: float) -> None:
         cutoff = now - 3600.0
@@ -108,7 +122,9 @@ class VisionGate:
         self._last_capture_at = now
         self._last_sent_thumb = self._last_thumb
 
-    def _commit(self, frame: Frame, reason: str) -> GateDecision:
+    def _commit(
+        self, frame: Frame, reason: str, tokens: int | None = None
+    ) -> GateDecision:
         """A ``look`` decision spends the budget as it is made.
 
         Making the caller report back with ``note_capture`` was a footgun: a
@@ -120,7 +136,7 @@ class VisionGate:
         self._captures.append(frame.ts)
         self._last_capture_at = frame.ts
         self._last_sent_thumb = frame.thumb
-        return GateDecision(True, reason, self.EST_TOKENS_PER_FRAME)
+        return GateDecision(True, reason, tokens or self.AMBIENT_TOKENS_PER_FRAME)
 
     def consider(self, frame: Frame, *, explicit: bool = False) -> GateDecision:
         """Decide whether ``frame`` is worth spending a vision call on.
@@ -133,9 +149,12 @@ class VisionGate:
         prev, self._last_thumb = self._last_thumb, frame.thumb
 
         if explicit:
-            # The wearer asked. Steadiness still matters — a blurred answer is a
-            # wrong answer — but budget does not.
-            return self._commit(frame, "explicit request")
+            # The wearer asked, so send the better frame: they are waiting on
+            # this answer, and a misread label is worse than 500 extra tokens.
+            # Budget does not apply — an explicit ask is always honoured.
+            return self._commit(
+                frame, "explicit request", self.DETAIL_TOKENS_PER_FRAME
+            )
 
         if prev is None:
             self._stable_since = now

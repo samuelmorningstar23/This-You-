@@ -44,15 +44,19 @@ does not involve a face database.
 
 ## The three decisions that matter
 
-**Vision is gated, not streamed.** Sending one frame per second to a
-multimodal model for an eight-hour day costs roughly **$690 per wearer per day**
-at current Opus pricing. The same day with change-detection gating, a settle
-check, and an hourly budget costs about **$0.64**. That ratio — three orders of
-magnitude — is why `gate.py` is the first file to read. It works on a 16×16
-grayscale thumbnail, which is cheap enough to run on every frame and is
-something a camera ISP can produce without waking the main SoC.
+**Vision is gated, not streamed — and the reason is battery, not the bill.**
+One frame per second for an eight-hour day is $113 on Opus 5 at 768×768, or
+$689 at full resolution. Gated, the same day is about **$0.47**. But the cloud
+bill is the *smaller* problem: continuously encoding and radioing a frame every
+second is what turns a six-hour battery into a thirty-minute one, which is the
+gap measured on shipping hardware between Ray-Ban Display's rated endurance and
+its endurance under continuous live AI. No cheaper model fixes that, because the
+cost is in the camera, the encoder, and the radio.
 
-Run `python -m edith budget` for the arithmetic.
+So `gate.py` optimises for radio-off time and the cost saving follows for free.
+It works on a 16×16 grayscale thumbnail — cheap enough to run on every frame,
+and something an image sensor can produce in a low-power mode without waking the
+main SoC. Run `python -m edith budget` for the arithmetic.
 
 **The proactive path is off by default.** The runtime can decide on its own to
 speak up, and there is a cheap Haiku-based judge for exactly that. It ships
@@ -108,6 +112,6 @@ Two seams are stubbed and marked as such:
 * `SharedSecretSigner` is symmetric HMAC. Production keys belong in the secure
   enclave as Ed25519, gated by a local biometric, so the roster holds only
   public keys. The `Signer` protocol is where that swaps in.
-* `ClaudeLooker` sends a downscaled JPEG. The downscale is load-bearing — full
-  resolution is ~4.8K input tokens per frame against ~1.1K downscaled, and that
-  still reads signage.
+* `ClaudeLooker` sends a downscaled JPEG. The downscale is load-bearing: Claude
+  bills images as 28×28-pixel patches, so 448×448 is 256 tokens against 784 at
+  768×768 and 4,784 at full resolution — and 448×448 still reads signage.
