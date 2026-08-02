@@ -34,23 +34,48 @@ PROHIBITIONS: tuple[Prohibition, ...] = (
             "enrolment and ongoing consent."
         ),
         basis=(
-            "EU AI Act Art. 5 prohibits untargeted scraping of facial images to "
-            "build recognition databases and restricts real-time remote biometric "
-            "identification in public. Illinois BIPA (740 ILCS 14) attaches a "
-            "private right of action to collecting a face template without prior "
-            "written consent, per person per scan; Texas CUBI is the reason Meta "
-            "settled for $1.4B. This is the single most legally dangerous thing "
-            "the film's version does, and it does it constantly."
+            "Three independent things stop this, and it is worth being precise "
+            "about which. (1) The index is unbuildable: EU AI Act Art. 5(1)(e), in "
+            "force since 2 Feb 2025, prohibits creating or expanding facial "
+            "recognition databases through untargeted scraping of facial images "
+            "from the internet or CCTV — the exact mechanism every usable "
+            "stranger-ID index is built on — at up to EUR 35M or 7% of worldwide "
+            "turnover. (2) The processing has no lawful basis: bystanders' "
+            "biometrics are GDPR Art. 9 special-category data and a passerby has "
+            "consented to nothing. Note what is NOT the objection — Art. 5(1)(h)'s "
+            "real-time remote biometric identification ban is scoped to law "
+            "enforcement and does not by its terms reach a private wearable; the "
+            "Commission's Feb 2025 guidance confirms private-sector face "
+            "recognition is governed by GDPR instead. (3) Personal exposure: "
+            "Illinois BIPA (740 ILCS 14) s.10 defines 'private entity' to include "
+            "'any individual', so a hobbyist is a proper defendant, at $1,000 per "
+            "negligent and $5,000 per intentional violation plus fees. (SB 2979, "
+            "Aug 2024, limits repeat collection by the same method from the same "
+            "person to a single recovery — the old per-scan accrual theory is "
+            "gone, and quoting it is a common error.) Texas CUBI has no private "
+            "action but its AG took $1.4B from Meta and $1.375B from Google. "
+            "Buying your way out does not work either: the 2022 ACLU settlement "
+            "permanently bars Clearview from selling to any private entity in the "
+            "US. Meta shipped face-recognition code in its glasses companion app "
+            "and scrubbed it within 48 hours of being caught in June 2026, which "
+            "is the clearest available signal about where the line sits."
         ),
     ),
     Prohibition(
         key="covert_capture",
         summary="Record audio or video with the capture indicator suppressed.",
         basis=(
-            "Two-party-consent recording statutes in a dozen US states, plus the "
-            "recording-indicator requirements every shipping camera-glasses vendor "
-            "operates under. The indicator is a safety feature for the people "
-            "around the wearer, not a UI preference for the wearer."
+            "Twelve US states require all-party consent for recording a private "
+            "conversation, so capturing audio without everyone's agreement can be "
+            "criminal even in public. Worth being accurate about the indicator "
+            "itself: no US state requires a recording LED by statute — it is a "
+            "manufacturer choice — but it is the only claim you can actually make "
+            "to a bystander, which is why Meta now permanently disables the camera "
+            "if it detects the LED has been tampered with, and why California SB "
+            "1130 targets sellers of LED-defeating modifications. New York's court "
+            "system banned camera-equipped eyewear from 1,200+ facilities in July "
+            "2026. The indicator is a safety feature for the people around the "
+            "wearer, not a UI preference for the wearer."
         ),
     ),
     Prohibition(

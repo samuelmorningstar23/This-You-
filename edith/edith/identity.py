@@ -3,9 +3,7 @@
 E.D.I.T.H.'s defining move is looking at a stranger and pulling up their name,
 their school records, and their phone. That single capability is the reason the
 film's own characters treat the glasses as dangerous, and in 2026 it is the
-capability that would end a company: EU AI Act Article 5 prohibits building
-recognition databases from scraped faces, and Illinois BIPA attaches per-scan
-statutory damages with a private right of action.
+capability that would end a company — see policy.py for the citations.
 
 The interesting part is that the *useful* half of that capability survives the
 legal constraint completely intact, if you invert who is doing the asserting.
@@ -15,6 +13,15 @@ built from people who never agreed to be in it.
 
 Resolution asks: "is there someone here who will tell me who they are?" — a
 question answered by that person's own device, live, and revocably.
+
+That inversion is not a workaround; the law already draws the line in the same
+place. EU AI Act Annex III classes remote biometric *identification* as
+high-risk while explicitly excluding systems "intended to be used for biometric
+verification the sole purpose of which is to confirm that a specific natural
+person is the person he or she claims to be". Identification searches a
+population for a face. Verification checks a claim its subject is making about
+themselves. Everything below is verification, which is why it lands on the
+permitted side of a line that was drawn without us in mind.
 
 This module implements resolution, and it is a direct application of the
 Presence Resolution Protocol in this repository's SOLUTION.md. The properties
