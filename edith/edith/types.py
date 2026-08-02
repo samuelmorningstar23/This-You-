@@ -92,11 +92,17 @@ class Fix:
 
 
 class Assurance(StrEnum):
-    """How strongly a nearby peer's claimed identity is backed."""
+    """How strongly a nearby peer's claimed identity is backed.
 
-    NONE = "none"  # an advertisement with nothing behind it
-    PROXIMITY = "proximity"  # time-of-flight bounded, replay-resistant
-    ATTESTED = "attested"  # + a live signature from the peer's own device
+    The jump that matters is PROXIMITY -> ATTESTED. Everything below ATTESTED is
+    an unverified claim: a distance bound narrows down *which* nearby person a
+    signature will belong to, but it is not itself evidence of anything, because
+    time-of-flight ranging is attackable (see identity.py on Ghost Peak).
+    """
+
+    NONE = "none"  # an advertisement, with nothing behind it
+    PROXIMITY = "proximity"  # + a distance bound: useful for disambiguation only
+    ATTESTED = "attested"  # + a live signature over our nonce — the first real tier
     NAMED = "named"  # + an attribute they chose to disclose to you
 
 

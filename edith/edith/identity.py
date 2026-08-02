@@ -34,12 +34,17 @@ that matter carry over one for one:
   answers a fresh challenge. Revocation is therefore instant and needs no
   propagation: a device that stops answering stops being resolvable, now.
 * **Assurance is graded, not binary.** Seeing an advertisement is weak. A
-  time-of-flight distance bound is stronger. A signature over our nonce is
-  stronger still. Callers ask for the minimum they need.
-* **Relay attacks are priced in.** Received signal strength is trivially
-  spoofable, so it never raises assurance on its own; only a time-of-flight
-  bound does, which is why UWB ranging rather than BLE RSSI is the real-hardware
-  requirement.
+  distance bound narrows it. A signature over our nonce is the first thing that
+  actually means something. Callers ask for the minimum they need.
+* **Ranging disambiguates; it does not authorise.** It is tempting to treat
+  ultra-wideband time-of-flight as unspoofable, and that is wrong: the Ghost
+  Peak attack (Leu et al., USENIX Security 2022) is an over-the-air
+  distance-reduction attack on 802.15.4z that collapsed a real 12 m separation
+  to a reported 0 m against Apple's U1, with roughly $65 of hardware. So ranging
+  answers "which of the five people in front of me signed my nonce", which is a
+  genuinely useful question. It never answers "should I believe them". Only the
+  signature does that, which is why ATTESTED is the first tier that carries any
+  weight and PROXIMITY carries none.
 
 Cryptography note, stated honestly: pairing here establishes a shared secret and
 challenges are answered with HMAC-SHA256. That is sound for a mutually-paired
@@ -203,7 +208,9 @@ class Roster:
                 match_id = cid
                 break
 
-        # Assurance from the radio alone.
+        # Assurance from the radio alone. Note this tops out at PROXIMITY no
+        # matter how good the ranging is: a distance bound tells you where to
+        # look, not whom to believe.
         if ad.ranged_m is not None and ad.ranged_m <= max_range_m:
             assurance = Assurance.PROXIMITY
         else:

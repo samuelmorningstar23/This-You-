@@ -91,18 +91,29 @@ def test_a_wrong_signature_is_treated_as_an_attack_not_a_near_miss():
     assert peer.assurance is Assurance.NONE
 
 
-def test_rssi_only_advertisements_never_reach_proximity_assurance():
-    """Signal strength is spoofable; only time-of-flight bounds a distance."""
+def test_an_unranged_advertisement_can_still_be_attested_by_signature():
+    """The signature is what carries weight; ranging only narrows down who."""
     roster, contact, handle = paired()
     peer = roster.resolve(
         Advertisement(handle=handle, ranged_m=None),
         challenge_responder=SharedSecretSigner(contact.secret),
     )
-    # It can still be attested — the signature is sound — but an unranged
-    # advertisement alone cannot establish that they are actually here.
     assert peer.assurance in (Assurance.ATTESTED, Assurance.NAMED)
     unpaired = roster.resolve(Advertisement(handle="ffffffffffffffff", ranged_m=None))
     assert unpaired.assurance is Assurance.NONE
+
+
+def test_ranging_alone_never_authorises_anything():
+    """Time-of-flight ranging is attackable (Ghost Peak, USENIX Sec '22).
+
+    A perfect distance bound on a paired contact must still not produce a name
+    without a signature — otherwise a relay is enough to impersonate someone.
+    """
+    roster, _contact, handle = paired({"team": "robotics"})
+    peer = roster.resolve(Advertisement(handle=handle, ranged_m=0.3))
+    assert peer.assurance is Assurance.PROXIMITY
+    assert peer.display_name is None
+    assert peer.disclosed == {}
 
 
 def test_a_peer_beyond_range_is_not_treated_as_present():
